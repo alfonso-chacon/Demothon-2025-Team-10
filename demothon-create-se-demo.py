@@ -199,6 +199,32 @@ def get_client_username_acl_publish_topic_exceptions(semp_config_url, semp_usern
 
     return None
 
+def get_client_username_queues(semp_config_url, semp_username , semp_password, msg_vpn_name, apps_dict):
+    url = f"{semp_config_url}/msgVpns/{msg_vpn_name}/queues"
+
+    response = requests.get(url, auth=(semp_username, semp_password))
+
+    if response.status_code != 200:
+        raise Exception("Getting client username queues failed: " + str(response.json()))
+
+    json_response_list = response.json()["data"]
+
+    for queue in json_response_list:
+        queue_name = queue.get('queueName')
+        owner = queue.get('owner')
+
+        #print(f"q: {queue_name}, o:{owner}")
+
+        if owner in apps_dict:
+            app = apps_dict[owner]
+            if app.queues is None or len(app.queues) == 0:
+                app.queues = []
+            #print(f" Adding q: {queue_name}, o:{owner} to: {app}")
+            app.queues.append(queue_name)
+            #print(f" App: {app}")
+
+    return None
+
 # Main
 def main(argv):
 
@@ -311,6 +337,13 @@ def main(argv):
         get_client_username_acl_publish_topic_exceptions(args.sempConfigUrl, args.sempUsername, args.sempPassword, args.msgVpnName, app)
         print(app)
         apps_dict[app.clientUserName] = app
+
+    # Get Queues in Msg VPN
+    get_client_username_queues(args.sempConfigUrl, args.sempUsername, args.sempPassword, args.msgVpnName, apps_dict)
+
+    # Get ACLs from broker
+    for app in application_list:
+        print(app)
 
     print(apps_dict)
 

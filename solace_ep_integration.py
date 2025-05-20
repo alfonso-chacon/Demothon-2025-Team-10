@@ -23,6 +23,7 @@ class EventPortalApplication:
     clientProfileName = None
     aclProfileName = None
     publishTopicExceptions = []
+    queues = []
     clientUserName = None
     password = None
     clientAuthorizationGroupName = None
