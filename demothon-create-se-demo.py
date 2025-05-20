@@ -2,6 +2,8 @@ import argparse
 import json
 import logging
 import os
+import random
+import string
 import sys
 import time
 import http.client as http_client
@@ -225,6 +227,45 @@ def get_client_username_queues(semp_config_url, semp_username , semp_password, m
 
     return None
 
+def generate_random_string(n):
+    characters = string.ascii_letters + string.digits  # Includes uppercase, lowercase, and digits
+    random_string = ''.join(random.choice(characters) for _ in range(n))
+    return random_string
+
+def write_sdk_publishers(host, msg_vpn, application):
+    topics_to_publish = ','.join(application.publishTopicExceptions)
+    topics_to_publish = topics_to_publish.replace("*", generate_random_string(5))
+
+    # 4 messages per second for 10 minutes
+    file_content = f"sdkperf_c.exe -cip={host} -cu={application.clientUserName}@{msg_vpn} -cp={application.password} -ptl={topics_to_publish} -mn=2400 -mt=persistent -mr=4 -msx=1024"
+
+
+    publish_file = f"publisher/pub_{application.applicationTitle}_v{application.applicationVersion}.bat".lower()
+    publish_file = publish_file.replace(" ", "_")
+    os.makedirs(os.path.dirname(publish_file), exist_ok=True)
+
+    logger.info(
+        f"Writing Publisher bat file for Application: {application.applicationTitle}, version: {application.applicationVersion} - {application.applicationVersionName}, state: {application.applicationState} to file: {publish_file}")
+    with open(publish_file, "w") as file:
+        file.write(file_content)
+
+    return None
+
+def write_sdk_publish_run_all():
+
+    file_content = 'for /r "." %%a in (*.exe) do start "" "%%~fa"'
+
+    publish_file = f"publisher/pub_run_all.cmd"
+    publish_file = publish_file.replace(" ", "_")
+    os.makedirs(os.path.dirname(publish_file), exist_ok=True)
+
+    logger.info(
+        f"Writing Publisher run All cmd file")
+    with open(publish_file, "w") as file:
+        file.write(file_content)
+
+    return None
+
 # Main
 def main(argv):
 
@@ -239,6 +280,7 @@ def main(argv):
     parser.add_argument("-sempConfigUrl", type=str, required=True, help="SEMP Config URL")
     parser.add_argument("-sempUsername", type=str, required=True, help="SEMP username")
     parser.add_argument("-sempPassword", type=str, required=True, help="SEMP password")
+    parser.add_argument("-msgUrl", type=str, required=True, help="Broker SMF URL")
 
 
 
@@ -341,11 +383,17 @@ def main(argv):
     # Get Queues in Msg VPN
     get_client_username_queues(args.sempConfigUrl, args.sempUsername, args.sempPassword, args.msgVpnName, apps_dict)
 
-    # Get ACLs from broker
+    # Write publisher Apps
     for app in application_list:
         print(app)
+        write_sdk_publishers(args.msgUrl, args.msgVpnName, app)
+
+    write_sdk_publish_run_all()
 
     print(apps_dict)
+
+
+
 
     return None
 '''

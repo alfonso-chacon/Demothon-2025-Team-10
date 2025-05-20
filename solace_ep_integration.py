@@ -389,6 +389,9 @@ def create_application_client_profile(token, broker_service_id, client_profile_n
 
     payload = {
         "name": f"{client_profile_name}",
+        "allowGuaranteedMsgSendEnabled": True,
+        "allowGuaranteedMsgReceiveEnabled": True,
+        "compressionEnabled": True,
     }
     headers = {
         "accept": "application/json",
