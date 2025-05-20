@@ -6,7 +6,7 @@ from datetime import datetime
 import requests
 
 # Constants
-ASYNC_API_APPLICATION_TITLE_PATTERN = r'title: "([\w\.\s]+)"'
+ASYNC_API_APPLICATION_TITLE_PATTERN = r'title: "([\w\.\s\-,;:\'\(\)]+)"'
 ASYNC_API_APPLICATION_ID_PATTERN = r'x-ep-application-id: "([\w\.]+)"'
 ASYNC_API_APPLICATION_VERSION_PATTERN = r'version: "([\w\.]+)"'
 ASYNC_API_APPLICATION_VERSION_ID_PATTERN = r'x-ep-application-version-id: "([\w\.]+)"'
@@ -22,6 +22,7 @@ class EventPortalApplication:
     lastChangeRecordId = None
     clientProfileName = None
     clientUserName = None
+    password = None
     clientAuthorizationGroupName = None
     def __init__(self, title, application_id, application_version, application_version_id, application_version_name, application_state, application_state_id):
         self.applicationTitle = title
@@ -400,6 +401,25 @@ def create_application_client_profile(token, broker_service_id, client_profile_n
 
     print(response.text)
 
+
+def get_application_client_username(token, broker_id, application):
+    url = f"https://api.solace.cloud/api/v2/architecture/designer/configuration/solaceClientUsernames?pageSize=20&pageNumber=1&eventBrokerIds={broker_id}&entityIds={application.applicationId}"
+
+    headers = {
+        "accept": "application/json;charset=UTF-8",
+        "authorization": f"Bearer {token}"
+    }
+    logger.info(url)
+    logger.info(
+        f"Getting client username for Application: {application.applicationTitle}, version: {application.applicationVersion} - {application.applicationVersionName}, state: {application.applicationState} - BrokerId: {broker_id}")
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        raise Exception(f"Getting client username for Application: {application.applicationTitle}, version: {application.applicationVersion} - {application.applicationVersionName}, state: {application.applicationState} failed! - error details: " + str(response.json()))
+
+    return response.text
+
+
 def get_application_authorization_group(token, broker_id, application):
     url = f"https://api.solace.cloud/api/v2/architecture/designer/configuration/solaceAuthorizationGroups?pageSize=100&pageNumber=1&eventBrokerIds={broker_id}&entityIds={application.applicationId}"
 
@@ -414,6 +434,36 @@ def get_application_authorization_group(token, broker_id, application):
 
     if response.status_code != 200:
         raise Exception(f"Getting client client Authorization group for Application: {application.applicationTitle}, version: {application.applicationVersion} - {application.applicationVersionName}, state: {application.applicationState} failed! - error details: " + str(response.json()))
+
+    return response.text
+
+def create_application_client_username(token, broker_id, application):
+    url = "https://api.solace.cloud/api/v2/architecture/designer/configuration/solaceClientUsernames"
+
+    payload = {
+        #"action": "deploy",
+        #"applicationVersionId": f"{application.applicationVersionId}",
+        #"eventBrokerId": f"{broker_id}",
+
+        "value": {
+            "clientUsername": f"{application.clientUserName}",
+            "password": f"{application.password}"
+        },
+        "configurationTypeId": "solaceClientUsername",
+        "contextType": "EVENT_BROKER",
+        "contextId": f"{broker_id}",
+        "entityId": f"{application.applicationId}"
+    }
+
+    headers = {
+        "accept": "application/json;charset=UTF-8",
+        "content-type": "application/json;charset=UTF-8",
+        "authorization": f"Bearer {token}"
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+    if response.status_code != 200 and response.status_code != 201:
+        raise Exception(f"Creating client Username for Application: {application.applicationTitle}, version: {application.applicationVersion} - {application.applicationVersionName}, state: {application.applicationState} failed! - error details: " + str(response.json()))
 
     return response.text
 

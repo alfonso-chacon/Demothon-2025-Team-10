@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 import http.client as http_client
@@ -40,8 +41,10 @@ def write_application_async_api_specification(token, application):
     #pretty_json = sepi.to_pretty_json(txt_response)
     print(txt_response)
 
-    async_api_file = f"{application.applicationTitle}_v{application.applicationVersion}.yaml"
+
+    async_api_file = f"yaml/{application.applicationTitle}_v{application.applicationVersion}.yaml".lower()
     async_api_file = async_api_file.replace(" ", "_")
+    os.makedirs(os.path.dirname(async_api_file), exist_ok=True)
 
     logger.info(
         f"Writing AsyncAPI specification for Application: {application.applicationTitle}, version: {application.applicationVersion} - {application.applicationVersionName}, state: {application.applicationState} to file: {async_api_file}")
@@ -70,8 +73,8 @@ def validate_application_client_profile(token, broker_service_id, application):
     sepi.create_application_client_profile(token, broker_service_id, client_profile_name)
     return None
 
-def validate_application_authorization_group(token, broker_id, application):
-    txt_response = sepi.get_application_authorization_group(token, broker_id, application)
+def validate_application_client_username(token, broker_id, application):
+    txt_response = sepi.get_application_client_username(token, broker_id, application)
     pretty_json = sepi.to_pretty_json(txt_response)
     print(pretty_json)
 
@@ -82,12 +85,12 @@ def validate_application_authorization_group(token, broker_id, application):
             logger.warning(
                 f"Application: {application.applicationTitle}, version: {application.applicationVersion} - {application.applicationVersionName}, state: {application.applicationState} does not have an Authorization Group (OAuth or LDAP)!.")
 
-            logger.warning("Deploying the App to the Authorization Group...")
+            logger.warning("Deploying the App for the Client Username...")
             deploy_undeploy_application_to_runtime(token, broker_id, ACTION_DEPLOY, application)
             get_deployment_status_single_application_to_runtime(token, broker_id, application)
 
-            logger.warning("Creating the Authorization Group...")
-            txt_response = sepi.create_application_authorization_group(token, broker_id, application)
+            logger.warning("Creating the Client Username..")
+            txt_response = sepi.create_application_client_username(token, broker_id, application)
             pretty_json = sepi.to_pretty_json(txt_response)
             print(pretty_json)
 
@@ -136,7 +139,7 @@ def deploy_applications_to_runtime(token, broker_service_id, broker_id, applicat
         validate_application_client_profile(token, broker_service_id, app)
 
     for app in application_list:
-        validate_application_authorization_group(token, broker_id, app)
+        validate_application_client_username(token, broker_id, app)
 
     for app in application_list:
         deploy_undeploy_application_to_runtime(token, broker_id, ACTION_DEPLOY, app)
@@ -214,12 +217,42 @@ def main(argv):
     if broker_service_id is None:
         raise Exception(f"Could not find an broker service with name: {args.brokerName}")
 
+    # Iterate through all files in the directory
+    for filename in os.listdir("yaml"):
+        file_path = os.path.join("yaml", filename)
+        # Check if it's a file before deleting
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+
+            print(f"Deleted: {file_path}")
+
     # print all the apps to console
     for app in application_list:
         print(app)
         # Write Async API spec to json file
         write_application_async_api_specification(args.token, app)
 
+    # Scan current workspace to get all the yaml files and read them
+    application_list = sepi.get_applications_from_yaml_files()
+
+    # print all the apps to console
+    for app in application_list:
+        print(app)
+
+    # Set username and password
+    for app in application_list:
+        app.clientUserName = app.applicationTitle.replace(" ", "_").replace("(", "").replace(")", "").replace("_", "").replace("__", "_").lower()
+        app.password = "password"
+
+    # print all the apps to console
+    for app in application_list:
+        print(app)
+
+    if args.action == ACTION_DEPLOY:
+        # deploy applications to runtime broker
+        deploy_applications_to_runtime(args.token, broker_service_id, broker_id, application_list)
+    elif args.action == ACTION_UNDEPLOY:
+        undeploy_applications_to_runtime(args.token, broker_id, application_list)
 
     return None
 '''
@@ -246,8 +279,7 @@ def main(argv):
     # Write Async API spec to json file
     write_application_async_api_specification(args.token, requested_app)
 
-    #scan current workspace to get all the yaml files and read them
-    #application_list = sepi.get_applications_from_yaml_files()
+
 
     #i = 1
     #for app in application_list:
