@@ -6,7 +6,7 @@ import sys
 import time
 import http.client as http_client
 
-
+import requests
 import urllib3
 
 import solace_ep_integration as sepi
@@ -168,6 +168,37 @@ def undeploy_applications_to_runtime(token, broker_id, application_list):
 
     return None
 
+
+def get_client_username_acl(semp_config_url, semp_username , semp_password, msg_vpn_name, client_username, application):
+    url = f"{semp_config_url}/msgVpns/{msg_vpn_name}/clientUsernames/{client_username}"
+
+    response = requests.get(url, auth=(semp_username, semp_password))
+
+    if response.status_code != 200:
+        raise Exception("Getting client username ACL failed: " + str(response.json()))
+
+    json_response = response.json()["data"]
+
+    application.aclProfileName = json_response.get('aclProfileName')
+    return None
+
+def get_client_username_acl_publish_topic_exceptions(semp_config_url, semp_username , semp_password, msg_vpn_name, application):
+    url = f"{semp_config_url}/msgVpns/{msg_vpn_name}/aclProfiles/{application.aclProfileName}/publishTopicExceptions"
+
+    response = requests.get(url, auth=(semp_username, semp_password))
+
+    if response.status_code != 200:
+        raise Exception("Getting client username ACL publish topic exceptions failed: " + str(response.json()))
+
+    json_response_list = response.json()["data"]
+
+    application.publishTopicExceptions = []
+
+    for topic_exception in json_response_list:
+        application.publishTopicExceptions.append(topic_exception.get('publishTopicException'))
+
+    return None
+
 # Main
 def main(argv):
 
@@ -178,8 +209,14 @@ def main(argv):
     parser.add_argument("-applicationDomainList", type=str, required=True, help="Comma separated list of Application Domain Name")
 
     parser.add_argument("-brokerName", type=str, required=True, help="Runtime broker Name")
-    parser.add_argument("-action", type=str, required=True, help="deploy/undeploy")
+    parser.add_argument("-msgVpnName", type=str, required=True, help="Message VPN")
+    parser.add_argument("-sempConfigUrl", type=str, required=True, help="SEMP Config URL")
+    parser.add_argument("-sempUsername", type=str, required=True, help="SEMP username")
+    parser.add_argument("-sempPassword", type=str, required=True, help="SEMP password")
 
+
+
+    parser.add_argument("-action", type=str, required=True, help="deploy/undeploy")
 
 
     args = parser.parse_args()
@@ -241,18 +278,41 @@ def main(argv):
 
     # Set username and password
     for app in application_list:
-        app.clientUserName = app.applicationTitle.replace(" ", "_").replace("(", "").replace(")", "").replace("_", "").replace("__", "_").lower()
+        client_user_name = app.applicationTitle.lower()
+        client_user_name = client_user_name.replace(" ", "_")
+        client_user_name = client_user_name.replace("(", "")
+        client_user_name = client_user_name.replace(")", "")
+        client_user_name = client_user_name.replace("_", "")
+        #client_user_name = client_user_name.replace("-", "")
+        #client_user_name = client_user_name.replace("__", "_")
+        #client_user_name = client_user_name.replace("_", "-")
+        #client_user_name = client_user_name.replace("---", "-")
+        #client_user_name = client_user_name.replace("--", "-")
+        app.clientUserName = client_user_name
         app.password = "password"
 
     # print all the apps to console
     for app in application_list:
         print(app)
 
+    if args.action == ACTION_UNDEPLOY:
+        undeploy_applications_to_runtime(args.token, broker_id, application_list)
+        return None
+
+
     if args.action == ACTION_DEPLOY:
         # deploy applications to runtime broker
         deploy_applications_to_runtime(args.token, broker_service_id, broker_id, application_list)
-    elif args.action == ACTION_UNDEPLOY:
-        undeploy_applications_to_runtime(args.token, broker_id, application_list)
+
+    apps_dict = {}
+    # Get ACLs from broker
+    for app in application_list:
+        get_client_username_acl(args.sempConfigUrl, args.sempUsername, args.sempPassword, args.msgVpnName, app.clientUserName, app)
+        get_client_username_acl_publish_topic_exceptions(args.sempConfigUrl, args.sempUsername, args.sempPassword, args.msgVpnName, app)
+        print(app)
+        apps_dict[app.clientUserName] = app
+
+    print(apps_dict)
 
     return None
 '''

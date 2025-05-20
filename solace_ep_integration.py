@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 class EventPortalApplication:
     lastChangeRecordId = None
     clientProfileName = None
+    aclProfileName = None
+    publishTopicExceptions = []
     clientUserName = None
     password = None
     clientAuthorizationGroupName = None
