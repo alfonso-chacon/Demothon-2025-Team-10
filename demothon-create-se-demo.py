@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import string
 import sys
 import time
@@ -44,7 +45,7 @@ def write_application_async_api_specification(token, application):
     print(txt_response)
 
 
-    async_api_file = f"yaml/{application.applicationTitle}_v{application.applicationVersion}.yaml".lower()
+    async_api_file = f"out/yaml/{application.applicationTitle}_v{application.applicationVersion}.yaml".lower()
     async_api_file = async_api_file.replace(" ", "_")
     os.makedirs(os.path.dirname(async_api_file), exist_ok=True)
 
@@ -233,15 +234,22 @@ def generate_random_string(n):
     return random_string
 
 def write_sdk_publishers(host, msg_vpn, application):
+
+    if len(application.publishTopicExceptions) == 0:
+        return None
+
     topics_to_publish = ','.join(application.publishTopicExceptions)
     topics_to_publish = topics_to_publish.replace("*", generate_random_string(5))
 
     # 4 messages per second for 10 minutes
-    file_content = f"sdkperf_c.exe -cip={host} -cu={application.clientUserName}@{msg_vpn} -cp={application.password} -ptl={topics_to_publish} -mn=2400 -mt=persistent -mr=4 -msx=1024"
+    file_content = f'set SOLACE_VM_ARGS=-javaagent:C:/Solace/GitHub/Demothon-2025-Team-10/out/publisher/sdkperf/lib/opentelemetry-javaagent.jar -Dotel.javaagent.extensions=C:/Solace/GitHub/Demothon-2025-Team-10/out/publisher/sdkperf/lib/solace-opentelemetry-jms-integration-1.1.0.jar -Dotel.traces.exporter=otlp -Dotel.metrics.exporter=none -Dotel.instrumentation.jms.enabled=true -Dotel.javaagent.debug=false -Dotel.propagators=solace_jms_tracecontext -Dotel.resource.attributes=service.name={application.clientUserName} -Dotel.exporter.otlp.endpoint=http://ajcr-docker.eastus.cloudapp.azure.com:14317 -Dotel.exporter.otlp.headers="Info=demothon-2025" -Dotel.bsp.schedule.delay=500 -Dotel.bsp.max.queue.size=1000 -Dotel.bsp.max.export.batch.size=5 -Dotel.bsp.export.timeout=10000' + '\n'
+    file_content = file_content + f'cd sdkperf' + '\n'
+    file_content = file_content + f"sdkperf_jms.bat -cip={host} -cu={application.clientUserName}@{msg_vpn} -cp={application.password} -ptl={topics_to_publish} -mn=2400 -mt=persistent -mr=4 -msx=1024" + '\n'
 
-
-    publish_file = f"publisher/pub_{application.applicationTitle}_v{application.applicationVersion}.bat".lower()
+    publish_file = f"out/publisher/pub_{application.applicationTitle}_v{application.applicationVersion}.bat".lower()
     publish_file = publish_file.replace(" ", "_")
+    publish_file = publish_file.replace("(", "_")
+    publish_file = publish_file.replace(")", "_")
     os.makedirs(os.path.dirname(publish_file), exist_ok=True)
 
     logger.info(
@@ -251,11 +259,37 @@ def write_sdk_publishers(host, msg_vpn, application):
 
     return None
 
+def write_sdk_subscribers(host, msg_vpn, application):
+
+    if len(application.queues) == 0:
+        return None
+
+    queues_to_subscribe = ','.join(application.queues)
+    # topics_to_publish = topics_to_publish.replace("*", generate_random_string(5))
+
+    # 4 messages per second for 10 minutes
+    file_content = f'set SOLACE_VM_ARGS=-javaagent:C:/Solace/GitHub/Demothon-2025-Team-10/out/publisher/sdkperf/lib/opentelemetry-javaagent.jar -Dotel.javaagent.extensions=C:/Solace/GitHub/Demothon-2025-Team-10/out/publisher/sdkperf/lib/solace-opentelemetry-jms-integration-1.1.0.jar -Dotel.traces.exporter=otlp -Dotel.metrics.exporter=none -Dotel.instrumentation.jms.enabled=true -Dotel.javaagent.debug=false -Dotel.propagators=solace_jms_tracecontext -Dotel.resource.attributes=service.name={application.clientUserName} -Dotel.exporter.otlp.endpoint=http://ajcr-docker.eastus.cloudapp.azure.com:14317 -Dotel.exporter.otlp.headers="Info=demothon-2025" -Dotel.bsp.schedule.delay=500 -Dotel.bsp.max.queue.size=1000 -Dotel.bsp.max.export.batch.size=5 -Dotel.bsp.export.timeout=10000' + '\n'
+    file_content = file_content + f'cd sdkperf' + '\n'
+    file_content = file_content + f"sdkperf_jms.bat -cip={host} -cu={application.clientUserName}@{msg_vpn} -cp={application.password} -sql={queues_to_subscribe}"
+
+    subscriber_file = f"out/subscriber/sub_{application.applicationTitle}_v{application.applicationVersion}.bat".lower()
+    subscriber_file = subscriber_file.replace(" ", "_")
+    subscriber_file = subscriber_file.replace("(", "_")
+    subscriber_file = subscriber_file.replace(")", "_")
+    os.makedirs(os.path.dirname(subscriber_file), exist_ok=True)
+
+    logger.info(
+        f"Writing Subscriber bat file for Application: {application.applicationTitle}, version: {application.applicationVersion} - {application.applicationVersionName}, state: {application.applicationState} to file: {subscriber_file}")
+    with open(subscriber_file, "w") as file:
+        file.write(file_content)
+
+    return None
+
 def write_sdk_publish_run_all():
 
-    file_content = 'for /r "." %%a in (*.exe) do start "" "%%~fa"'
+    file_content = 'for /r "." %%a in (*.bat) do start "" "%%~fa"'
 
-    publish_file = f"publisher/pub_run_all.cmd"
+    publish_file = f"out/publisher/pub_run_all.cmd"
     publish_file = publish_file.replace(" ", "_")
     os.makedirs(os.path.dirname(publish_file), exist_ok=True)
 
@@ -266,6 +300,20 @@ def write_sdk_publish_run_all():
 
     return None
 
+def write_sdk_subscribe_run_all():
+
+    file_content = 'for /r "." %%a in (*.bat) do start "" "%%~fa"'
+
+    publish_file = f"out/subscriber/sub_run_all.cmd"
+    publish_file = publish_file.replace(" ", "_")
+    os.makedirs(os.path.dirname(publish_file), exist_ok=True)
+
+    logger.info(
+        f"Writing Subscriber run All cmd file")
+    with open(publish_file, "w") as file:
+        file.write(file_content)
+
+    return None
 # Main
 def main(argv):
 
@@ -323,13 +371,34 @@ def main(argv):
         raise Exception(f"Could not find an broker service with name: {args.brokerName}")
 
     # Iterate through all files in the directory
-    for filename in os.listdir("yaml"):
-        file_path = os.path.join("yaml", filename)
+    os.makedirs(os.path.dirname("out/yaml/1.txt"), exist_ok=True)
+    for filename in os.listdir("out/yaml"):
+        file_path = os.path.join("out/yaml", filename)
         # Check if it's a file before deleting
         if os.path.isfile(file_path):
             os.remove(file_path)
-
             print(f"Deleted: {file_path}")
+
+    os.makedirs(os.path.dirname("out/publisher/1.txt"), exist_ok=True)
+    for filename in os.listdir("out/publisher"):
+        file_path = os.path.join("out/publisher", filename)
+        # Check if it's a file before deleting
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+            print(f"Deleted: {file_path}")
+
+    os.makedirs(os.path.dirname("out/subscriber/1.txt"), exist_ok=True)
+    for filename in os.listdir("out/subscriber"):
+        file_path = os.path.join("out/subscriber", filename)
+        # Check if it's a file before deleting
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+            print(f"Deleted: {file_path}")
+
+    shutil.copytree("libraries/sdkperf", "out/publisher/sdkperf", dirs_exist_ok=True)
+    shutil.copytree("libraries/sdkperf", "out/subscriber/sdkperf", dirs_exist_ok=True)
+    shutil.copytree("libraries/otel", "out/publisher/lib", dirs_exist_ok=True)
+    shutil.copytree("libraries/otel", "out/subscriber/lib", dirs_exist_ok=True)
 
     # print all the apps to console
     for app in application_list:
@@ -351,11 +420,6 @@ def main(argv):
         client_user_name = client_user_name.replace("(", "")
         client_user_name = client_user_name.replace(")", "")
         client_user_name = client_user_name.replace("_", "")
-        #client_user_name = client_user_name.replace("-", "")
-        #client_user_name = client_user_name.replace("__", "_")
-        #client_user_name = client_user_name.replace("_", "-")
-        #client_user_name = client_user_name.replace("---", "-")
-        #client_user_name = client_user_name.replace("--", "-")
         app.clientUserName = client_user_name
         app.password = "password"
 
@@ -387,66 +451,16 @@ def main(argv):
     for app in application_list:
         print(app)
         write_sdk_publishers(args.msgUrl, args.msgVpnName, app)
+        write_sdk_subscribers(args.msgUrl, args.msgVpnName, app)
+
+
 
     write_sdk_publish_run_all()
-
+    write_sdk_subscribe_run_all()
     print(apps_dict)
 
 
-
-
     return None
-'''
-
-    requested_app = sepi.EventPortalApplication(None, None, None,
-                                                None, None, None, None)
-
-    # Get Application by Name
-    sepi.get_application_list_by_name(args.token, args.applicationName, requested_app)
-    if requested_app.applicationTitle is None or requested_app.applicationId is None:
-        raise Exception(f"Could not find an application with name: {args.applicationName}")
-
-    # Get Application Version by Name
-    sepi.get_application_version_by_name(args.token, args.applicationVersion, requested_app)
-    if requested_app.applicationVersion is None:
-        raise Exception(f"Could not find an application versions for application with name: {requested_app.applicationTitle} and version name: {args.applicationVersion}")
-
-    # Set Authorization parameters
-    requested_app.clientUserName = args.clientUsername
-    requested_app.clientAuthorizationGroupName = args.clientAuthorizationGroupName
-
-    print(requested_app)
-
-    # Write Async API spec to json file
-    write_application_async_api_specification(args.token, requested_app)
-
-
-
-    #i = 1
-    #for app in application_list:
-    #    app.clientUserName = args.clientUsername + "_" + "{:03d}".format(i)
-    #    app.clientAuthorizationGroupName = args.clientAuthorizationGroupName  + "_" + "{:03d}".format(i)
-    #    i = i +1
-
-    application_list = [requested_app]
-
-    if args.action == ACTION_DEPLOY:
-        # deploy applications to runtime broker
-        deploy_applications_to_runtime(args.token, broker_service_id, broker_id, application_list)
-    elif args.action == ACTION_UNDEPLOY:
-        undeploy_applications_to_runtime(args.token, broker_id, application_list)
-        
-        ---
-    parser.add_argument("-applicationName", type=str, required=True, help="Application Name (case sensitive)")
-    parser.add_argument("-applicationVersion", type=str, required=True, help="Application Version (case sensitive)")
-    parser.add_argument("-clientUsername", type=str, required=True, help="Client username")
-    parser.add_argument("-clientAuthorizationGroupName", type=str, required=True, help="Client Authorization group")
-        
-        
-'''
-
-
-
 
 
 if __name__ == "__main__":
