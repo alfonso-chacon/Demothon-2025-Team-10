@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.solace</groupId>
+  <artifactId>solace-opentelemetry-jms-integration</artifactId>
+  <version>1.1.0</version>
+  <name>Solace PubSub+ OpenTelemetry Integration for Solace JMS API</name>
+  <description>Solace PubSub+ OpenTelemetry Integration for Solace JMS API</description>
+  <url>https://docs.solace.com/</url>
+  <licenses>
+    <license>
+      <name>SOLACE CORPORATION LICENSE AGREEMENT</name>
+      <url>https://solace.com/license-software</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>Solace</name>
+      <email>info@solace.com</email>
+      <organization>Solace Corporation</organization>
+      <organizationUrl>http://www.solace.com</organizationUrl>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm</connection>
+    <developerConnection>scm</developerConnection>
+    <url>https://solace.com</url>
+  </scm>
+  <dependencies>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+      <version>1.29.0</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk</artifactId>
+      <version>1.29.0</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry.javaagent</groupId>
+      <artifactId>opentelemetry-javaagent-extension-api</artifactId>
+      <version>1.29.0-alpha</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.auto.service</groupId>
+      <artifactId>auto-service-annotations</artifactId>
+      <version>1.0.1</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
+      <version>1.29.0</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry.javaagent.instrumentation</groupId>
+      <artifactId>opentelemetry-javaagent-jms-1.1</artifactId>
+      <version>1.29.0-alpha</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+</project>
